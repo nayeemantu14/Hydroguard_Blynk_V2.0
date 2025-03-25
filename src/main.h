@@ -1,4 +1,4 @@
-#define BLYNK_FIRMWARE_VERSION        "1.1.1"
+#define BLYNK_FIRMWARE_VERSION        "1.1.5"
 
 #include <Arduino.h>
 #include "debug.h"
@@ -81,6 +81,7 @@ byte data[32];
 byte (*pData)[32] = &data; // Pointer to the array
 
 static float flowrate;
+static float flowThreshold;
 static double cumulativeFlow;
 static uint16_t pressureCH1 = 0;
 static uint16_t pressureCH2 = 0;
@@ -91,6 +92,6 @@ static double cFlowThreshold;
 static bool isThresholdSet = false;
 bool isFlowAvailable = false;
 bool isTimeSet = false;
+static uint8_t disableShutoff;
 static pload_t blynk_data;
 static FlowUsage_t flowusage;
-

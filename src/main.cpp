@@ -1,4 +1,5 @@
 #include "main.h"
+#include "Arduino.h"
 
 void setup()
 {
@@ -9,6 +10,7 @@ void setup()
   analogSetAttenuation(ADC_11db);
   init_pressure_ch1();
   init_pressure_ch2();
+  flowThreshold = 30.0;
   BlynkEdgent.begin();
   // enableOTA();
   debugln("Setup complete");
@@ -46,10 +48,24 @@ void loop()
     pressureCH1 = readPressure_ch1();
     pressureCH2 = readPressure_ch2();
     UVVoltage = readUV();
-    UVLampOn = (UVVoltage >= 650) ? "On" : "Off";
     displayFlow();
     sendESPdata();
     processData();
+    checkShutoff();
+    checkhourlyFlow();
+    checkdailyFlow();
+    checkmonthlyFlow();
+    sendDatatoBlynk();
+    checkLeak();
+    memset(*pData, 0, sizeof(*pData)); // Clear the array after use
+  }
+}
+
+void checkShutoff()
+{
+  UVLampOn = (UVVoltage >= 650) ? "On" : "Off";
+  if (disableShutoff == 0)
+  {
     if (UVLampOn.equals("Off"))
     {
       Blynk.virtualWrite(V5, 1);
@@ -61,14 +77,8 @@ void loop()
       Blynk.virtualWrite(V5, 0);
       valveOn();
     }
-    checkhourlyFlow();
-    checkdailyFlow();
-    checkmonthlyFlow();
-    sendDatatoBlynk();
-    memset(*pData, 0, sizeof(*pData)); // Clear the array after use
   }
 }
-
 void displayFlow()
 {
   char *msg = new char[255];
@@ -121,6 +131,34 @@ BLYNK_WRITE(V11)
   {
     debugln("Resetting Cumulative Flow");
     resetTotalFlow(rstCFlowCommand, sizeof(rstCFlowCommand));
+  }
+}
+BLYNK_WRITE(V12)
+{
+  if (param.asInt() == 1)
+  {
+    disableShutoff = 1;
+    Blynk.logEvent("auto_flostop_disabled");
+  }
+  else
+  {
+    disableShutoff = 0;
+  }
+}
+BLYNK_WRITE(V13)
+{
+  float value = param.asFloat();
+  if(value>40||value<=10)
+  {
+     Blynk.virtualWrite(V13, "Enter value between 20–30");
+  }
+  else if(value>=20 && value<=30)
+  {
+    flowThreshold = value;
+  }
+  else
+  {
+    Blynk.virtualWrite(V13, "Invalid Input, enter a valid number");
   }
 }
 void setupTime()
@@ -207,5 +245,17 @@ void initFlowThreshold()
   {
     cFlowThreshold = cumulativeFlow;
     isThresholdSet = true;
+  }
+}
+
+void checkLeak()
+{
+  if (flowrate > flowThreshold)
+  {
+    Blynk.logEvent("leak_detected");
+    if (disableShutoff == 0)
+    {
+      valveOff();
+    }
   }
 }

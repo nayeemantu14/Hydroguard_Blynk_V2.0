@@ -141,27 +141,47 @@ bool readFlowSensorData(byte *command, size_t commandSize, float &flowrate, doub
 
 double readCumulativeFlow(byte *data)
 {
-    uint64_t integerpart = 0;
-    float decimalpart = 0.0000f;
-    double result;
-
     if (data[8] != 0x0A)
     {
-        debugln("incorrect data received");
+        Serial.println("Incorrect data received");
         return -1.0;
     }
 
-    integerpart += data[14] * 1000000;
-    integerpart += data[13] * 100000;
-    integerpart += data[12] * 1000;
-    integerpart += data[11] * 10;
+    // Helper lambda: converts a BCD encoded byte into a two-digit string.
+    auto bcdToTwoDigit = [](byte value) -> String {
+        char buf[3];
+        // Extract the high nibble and low nibble and combine them into a number.
+        int digitValue = (((value >> 4) & 0x0F) * 10) + (value & 0x0F);
+        sprintf(buf, "%02d", digitValue);
+        return String(buf);
+    };
 
-    decimalpart += data[10] / 10.0;
-    decimalpart += data[9] / 1000.0;
+    // Build the integer part:
+    // Use data[14], data[13], data[12], data[11] (each as two-digit strings)
+    // then append the tens digit of data[10] (the high nibble).
+    String integerPart = "";
+    integerPart += bcdToTwoDigit(data[14]);
+    integerPart += bcdToTwoDigit(data[13]);
+    integerPart += bcdToTwoDigit(data[12]);
+    integerPart += bcdToTwoDigit(data[11]);
+    // For the tens digit of data[10], extract the high nibble (a single digit)
+    integerPart += String((data[10] >> 4) & 0x0F);
 
-    result = integerpart + decimalpart;
-    return result;
+    // Build the decimal part:
+    // Use the ones digit of data[10] (low nibble) followed by data[9] as a two-digit string.
+    String decimalPart = "";
+    decimalPart += String(data[10] & 0x0F); // ones digit of data[10]
+    decimalPart += bcdToTwoDigit(data[9]);
+
+    // Combine the two parts into a complete string representation.
+    String flowStr = integerPart + "." + decimalPart;
+    Serial.print("Flow string: ");
+    Serial.println(flowStr);
+
+    // Convert the string to a double and return.
+    return flowStr.toDouble();
 }
+
 
 void resetTotalFlow(byte *command, size_t commandSize)
 {
