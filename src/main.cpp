@@ -51,20 +51,20 @@ void loop()
     displayFlow();
     sendESPdata();
     processData();
+    checkBurst();
     checkShutoff();
     checkhourlyFlow();
     checkdailyFlow();
     checkmonthlyFlow();
     sendDatatoBlynk();
-    checkLeak();
     memset(*pData, 0, sizeof(*pData)); // Clear the array after use
   }
 }
-
 void checkShutoff()
 {
-  UVLampOn = (UVVoltage >= 650) ? "On" : "Off";
-  if (disableShutoff == 0)
+  UVLampOn = (UVVoltage >= 650) ? "On" : "Off"; // Example threshold for 6 mW/cm²
+
+  if (disableShutoff == 0 && !burstData.valveLockedDueToLeak)
   {
     if (UVLampOn.equals("Off"))
     {
@@ -111,7 +111,6 @@ void sendDatatoBlynk()
   Blynk.virtualWrite(V3, blynk_data.pressure2);
   Blynk.virtualWrite(V4, blynk_data.dosage);
 }
-
 BLYNK_WRITE(V5)
 {
   if (param.asInt() == 1)
@@ -121,7 +120,12 @@ BLYNK_WRITE(V5)
   }
   else if (param.asInt() == 0)
   {
+    Blynk.resolveEvent("flostop_event");
+    Blynk.resolveEvent("leak_detected");
     blynk_data.userUpdate = 0;
+    burstData.valveLockedDueToLeak = false;
+    burstData.burstDetection = false;
+    burstData.leakConfirmed = false;
     valveOn();
   }
 }
@@ -142,24 +146,14 @@ BLYNK_WRITE(V12)
   }
   else
   {
+    Blynk.resolveEvent("auto_flostop_disabled");
     disableShutoff = 0;
   }
 }
 BLYNK_WRITE(V13)
 {
   float value = param.asFloat();
-  if(value>40||value<=10)
-  {
-     Blynk.virtualWrite(V13, "Enter value between 20–30");
-  }
-  else if(value>=20 && value<=30)
-  {
-    flowThreshold = value;
-  }
-  else
-  {
-    Blynk.virtualWrite(V13, "Invalid Input, enter a valid number");
-  }
+  flowThreshold = value;
 }
 void setupTime()
 {
@@ -248,14 +242,30 @@ void initFlowThreshold()
   }
 }
 
-void checkLeak()
+void checkBurst()
 {
   if (flowrate > flowThreshold)
   {
-    Blynk.logEvent("leak_detected");
-    if (disableShutoff == 0)
+    burstData.consecutiveHighFlowCount++;
+    debugln("High flow reading. Count: " + String(burstData.consecutiveHighFlowCount));
+
+    if (burstData.consecutiveHighFlowCount >= burstData.requiredCount && !burstData.leakConfirmed)
     {
-      valveOff();
+      burstData.leakConfirmed = true;
+      burstData.burstDetection = true;
+      burstData.valveLockedDueToLeak = true;
+
+      Blynk.logEvent("leak_detected");
+      if (disableShutoff == 0)
+      {
+        Blynk.virtualWrite(V5, 1);
+        valveOff();
+      }
     }
+  }
+  else
+  {
+    burstData.consecutiveHighFlowCount = 0;
+    // leakConfirmed remains true until manually cleared by the user
   }
 }
