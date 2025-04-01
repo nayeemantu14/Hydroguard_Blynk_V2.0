@@ -45,6 +45,11 @@ void loop()
   {
     reportTime = now;
     lastReportedFlowrate = flowrate;
+    // Reset filters when there's no flow or at heartbeat interval
+    if (flowrate == 0 || now - reportTime >= UPDATE_FREQ)
+    {
+      resetPressureFilters();
+    }
     pressureCH1 = readPressure_ch1();
     pressureCH2 = readPressure_ch2();
     UVVoltage = readUV();
@@ -153,7 +158,15 @@ BLYNK_WRITE(V12)
 BLYNK_WRITE(V13)
 {
   float value = param.asFloat();
-  flowThreshold = value;
+  if (value > 0)
+  {
+    flowThreshold = value;
+    debugln("Flow threshold updated to: " + String(flowThreshold) + " L/min");
+  }
+  else
+  {
+    debugln("Invalid threshold value received: " + String(value));
+  }
 }
 void setupTime()
 {
@@ -244,10 +257,33 @@ void initFlowThreshold()
 
 void checkBurst()
 {
-  if (flowrate > flowThreshold)
+  static bool initialSettingsReceived = false;
+
+  // Wait for initial settings from Blynk
+  if (!initialSettingsReceived)
+  {
+    if (Blynk.connected())
+    {
+      Blynk.syncVirtual(V12); // Sync disable shutoff setting
+      initialSettingsReceived = true;
+    }
+    return;
+  }
+
+  if (!isFlowAvailable || flowThreshold <= 0)
+  {
+    return;
+  }
+
+  debugln("Current flowrate: " + String(flowrate) + " L/min");
+  debugln("Current threshold: " + String(flowThreshold) + " L/min");
+
+  if (blynk_data.flowrate > flowThreshold)
   {
     burstData.consecutiveHighFlowCount++;
-    debugln("High flow reading. Count: " + String(burstData.consecutiveHighFlowCount));
+    debugln("High flow detected! Count: " + String(burstData.consecutiveHighFlowCount) +
+            "/" + String(burstData.requiredCount) +
+            " (Flow: " + String(blynk_data.flowrate) + " > Threshold: " + String(flowThreshold) + ")");
 
     if (burstData.consecutiveHighFlowCount >= burstData.requiredCount && !burstData.leakConfirmed)
     {
@@ -255,17 +291,24 @@ void checkBurst()
       burstData.burstDetection = true;
       burstData.valveLockedDueToLeak = true;
 
-      Blynk.logEvent("leak_detected");
+      String alertMsg = "Flow rate (" + String(flowrate) + ") exceeded threshold (" + String(flowThreshold) + ")";
+      debugln("Leak confirmed! " + alertMsg);
+      Blynk.logEvent("leak_detected", alertMsg);
+
       if (disableShutoff == 0)
       {
         Blynk.virtualWrite(V5, 1);
         valveOff();
+        debugln("Valve closed due to leak detection");
       }
     }
   }
   else
   {
+    if (burstData.consecutiveHighFlowCount > 0)
+    {
+      debugln("Flow returned to normal: " + String(blynk_data.flowrate) + " <= " + String(flowThreshold));
+    }
     burstData.consecutiveHighFlowCount = 0;
-    // leakConfirmed remains true until manually cleared by the user
   }
 }
