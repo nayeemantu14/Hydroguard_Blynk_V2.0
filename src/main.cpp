@@ -46,10 +46,10 @@ void loop()
     reportTime = now;
     lastReportedFlowrate = flowrate;
     // Reset filters when there's no flow or at heartbeat interval
-    if (flowrate == 0 || now - reportTime >= UPDATE_FREQ)
-    {
-      resetPressureFilters();
-    }
+    // if (flowrate == 0 || now - reportTime >= UPDATE_FREQ)
+    // {
+    //   resetPressureFilters();
+    // }
     pressureCH1 = readPressure_ch1();
     pressureCH2 = readPressure_ch2();
     UVVoltage = readUV();
