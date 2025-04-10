@@ -6,10 +6,24 @@ void setup()
   Serial.begin(115200);
   Serial1.setRxFIFOFull(32);
   Serial1.begin(115200, SERIAL_8N1);
+  EEPROM.begin(512);
+  // Initial calibration will happen on first flow reading
+  // Initialize ADC first
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
+  delay(100); // Give ADC time to stabilize
+
+  // Then initialize pressure sensors
   init_pressure_ch1();
   init_pressure_ch2();
+
+  // Take a few initial readings to prime the moving average
+  for (int i = 0; i < WINDOW_SIZE; i++)
+  {
+    readPressure_ch1();
+    readPressure_ch2();
+    delay(10);
+  }
   flowThreshold = 30.0;
   BlynkEdgent.begin();
   // enableOTA();
@@ -17,6 +31,12 @@ void setup()
 
   readFlowSensorData(readflowCommand, sizeof(readflowCommand), flowrate, cumulativeFlow, *pData, sizeof(*pData));
   initFlowThreshold();
+  pressureCH1 = readPressure_ch1();
+  pressureCH2 = readPressure_ch2();
+  // After pressure sensor init
+  filterMonitor.calibrate(
+      (208.33 * ((3.3 * pressureCH1 / 4095.0) - 0.6)) - (208.33 * ((3.3 * pressureCH2 / 4095.0) - 0.6)),
+      float(flowrate / 60.0));
 }
 
 void loop()
@@ -94,7 +114,7 @@ void displayFlow()
 
 void processData()
 {
-  blynk_data.flowrate = flowrate / 60.0;
+  blynk_data.flowrate = flowrate / 60.0; // Convert L/hr to L/min
   debugln(blynk_data.flowrate);
   blynk_data.cumulativeflow = cumulativeFlow;
   debugln(blynk_data.cumulativeflow);
@@ -106,6 +126,17 @@ void processData()
   debugln(blynk_data.pressure2);
   blynk_data.dosage = calculateUVDosage(&blynk_data.flowrate, &blynk_data.irradiance);
   debugln(blynk_data.dosage);
+  // Replace existing blockage detection with:
+  auto blockageStatus = filterMonitor.update(
+      blynk_data.pressure1,
+      blynk_data.pressure2,
+      blynk_data.flowrate);
+
+  if (blockageStatus.requiresAttention)
+  {
+    Blynk.logEvent("filter_blockage", blockageStatus.message);
+  }
+  Blynk.virtualWrite(V14, blockageStatus.blockagePercentage);
 }
 void sendDatatoBlynk()
 {
@@ -115,6 +146,7 @@ void sendDatatoBlynk()
   Blynk.virtualWrite(V2, blynk_data.pressure1);
   Blynk.virtualWrite(V3, blynk_data.pressure2);
   Blynk.virtualWrite(V4, blynk_data.dosage);
+  Blynk.virtualWrite(V15, filterMonitor.isCalibrated() ? "Calibrated" : "Needs Calibration");
 }
 BLYNK_WRITE(V5)
 {
@@ -275,7 +307,7 @@ void checkBurst()
     return;
   }
 
-  debugln("Current flowrate: " + String(flowrate) + " L/min");
+  debugln("Current flowrate: " + String(blynk_data.flowrate) + " L/min");
   debugln("Current threshold: " + String(flowThreshold) + " L/min");
 
   if (blynk_data.flowrate > flowThreshold)
@@ -291,7 +323,7 @@ void checkBurst()
       burstData.burstDetection = true;
       burstData.valveLockedDueToLeak = true;
 
-      String alertMsg = "Flow rate (" + String(flowrate) + ") exceeded threshold (" + String(flowThreshold) + ")";
+      String alertMsg = "Flow rate (" + String(blynk_data.flowrate) + ") exceeded threshold (" + String(flowThreshold) + ")";
       debugln("Leak confirmed! " + alertMsg);
       Blynk.logEvent("leak_detected", alertMsg);
 
@@ -310,5 +342,18 @@ void checkBurst()
       debugln("Flow returned to normal: " + String(blynk_data.flowrate) + " <= " + String(flowThreshold));
     }
     burstData.consecutiveHighFlowCount = 0;
+  }
+}
+
+// Add this handler for the calibration button (V16)
+BLYNK_WRITE(V16)
+{
+  if (param.asInt() == 1)
+  {
+    debugln("Calibrating filter system...");
+    filterMonitor.calibrate(
+        blynk_data.pressure1 - blynk_data.pressure2,
+        blynk_data.flowrate);
+    Blynk.logEvent("filter_calibration", "Filter system has been calibrated");
   }
 }

@@ -148,7 +148,8 @@ double readCumulativeFlow(byte *data)
     }
 
     // Helper lambda: converts a BCD encoded byte into a two-digit string.
-    auto bcdToTwoDigit = [](byte value) -> String {
+    auto bcdToTwoDigit = [](byte value) -> String
+    {
         char buf[3];
         // Extract the high nibble and low nibble and combine them into a number.
         int digitValue = (((value >> 4) & 0x0F) * 10) + (value & 0x0F);
@@ -181,7 +182,6 @@ double readCumulativeFlow(byte *data)
     // Convert the string to a double and return.
     return flowStr.toDouble();
 }
-
 
 void resetTotalFlow(byte *command, size_t commandSize)
 {

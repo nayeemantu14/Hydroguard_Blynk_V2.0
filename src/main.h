@@ -1,4 +1,4 @@
-#define BLYNK_FIRMWARE_VERSION        "1.2.3"
+#define BLYNK_FIRMWARE_VERSION        "1.2.7"
 
 #include <Arduino.h>
 #include "debug.h"
@@ -11,6 +11,7 @@
 #include "Servo.h"
 #include "PressureSensor.h"
 #include "UV.h"
+#include "AdvancedBlockageDetector.h"
 
 //system defines
 #define uS_TO_S_FACTOR 1000000 /* Conversion factor for micro seconds to seconds */
@@ -80,6 +81,9 @@ void initFlowThreshold();
 byte readflowCommand[] = {0x10, 0x5B, 0xFD, 0x58, 0x16};
 byte rstCFlowCommand[] = {0x10, 0x5A, 0xFD, 0x57, 0x16};
 
+//extern
+extern AdvancedBlockageDetector filterMonitor;
+
 // Global Variables
 uint32_t tempTime = millis();
 uint32_t flowTime = 0;
@@ -112,3 +116,4 @@ BurstDetection_t burstData = {
     false,  // burstDetection
     false   // valveLockedDueToLeak
 };
+AdvancedBlockageDetector filterMonitor;
