@@ -356,4 +356,11 @@ BLYNK_WRITE(V16)
         blynk_data.flowrate);
     Blynk.logEvent("filter_calibration", "Filter system has been calibrated");
   }
+  else
+  {
+    debugln("Resetting filter calibration");
+    filterMonitor.reset();
+    Blynk.virtualWrite(V15, "Needs Calibration");
+    Blynk.logEvent("filter_calibration", "Filter calibration reset to default");
+  }
 }

@@ -1,4 +1,4 @@
-#define BLYNK_FIRMWARE_VERSION        "1.2.7"
+#define BLYNK_FIRMWARE_VERSION        "1.3.0"
 
 #include <Arduino.h>
 #include "debug.h"

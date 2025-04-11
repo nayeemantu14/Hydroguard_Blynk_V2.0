@@ -7,19 +7,20 @@
 #include <math.h>
 #include <EEPROM.h>
 
-class AdvancedBlockageDetector {
+class AdvancedBlockageDetector
+{
 private:
     // EEPROM addresses
-    static constexpr int EEPROM_BASE_ADDR = 100;  // Starting address for filter data
+    static constexpr int EEPROM_BASE_ADDR = 100; // Starting address for filter data
     static constexpr int EEPROM_CALIBRATED_FLAG = EEPROM_BASE_ADDR;
     static constexpr int EEPROM_BASELINE_RESISTANCE = EEPROM_BASE_ADDR + 4;
     static constexpr int EEPROM_LAST_CALIBRATION = EEPROM_BASE_ADDR + 8;
 
     // Configuration constants
-    static constexpr uint16_t HISTORY_SIZE = 500;
-    static constexpr float FLOW_THRESHOLD = 2.0;      // Minimum reliable flow (L/min)
-    static constexpr float MAX_FLOW = 60.0;           // Maximum expected flow (L/min)
-    static constexpr float PRESSURE_RANGE = 600.0;    // kPa
+    static constexpr uint16_t HISTORY_SIZE = 100;
+    static constexpr float FLOW_THRESHOLD = 2.0;   // Minimum reliable flow (L/min)
+    static constexpr float MAX_FLOW = 60.0;        // Maximum expected flow (L/min)
+    static constexpr float PRESSURE_RANGE = 600.0; // kPa
 
     // Default pressure-flow curve coefficients
     static constexpr float DEFAULT_QUADRATIC_COEFF = 0.0178f;
@@ -59,7 +60,8 @@ private:
     bool validateReadings(float pressureDiff, float flowRate);
 
 public:
-    struct BlockageStatus {
+    struct BlockageStatus
+    {
         float blockagePercentage = 0.0;
         float confidence = 0.0;
         bool requiresAttention = false;
