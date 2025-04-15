@@ -7,10 +7,10 @@ void setup()
   Serial1.setRxFIFOFull(32);
   Serial1.begin(115200, SERIAL_8N1);
   EEPROM.begin(512);
-  // Initial calibration will happen on first flow reading
-  // Initialize ADC first
+  // Initialize ADC and mark filter monitor as uninitialized
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
+  filterMonitor.reset(); // Reset to uninitialized state
   delay(100); // Give ADC time to stabilize
 
   // Then initialize pressure sensors
@@ -33,10 +33,6 @@ void setup()
   initFlowThreshold();
   pressureCH1 = readPressure_ch1();
   pressureCH2 = readPressure_ch2();
-  // After pressure sensor init
-  filterMonitor.calibrate(
-      (208.33 * ((3.3 * pressureCH1 / 4095.0) - 0.6)) - (208.33 * ((3.3 * pressureCH2 / 4095.0) - 0.6)),
-      float(flowrate / 60.0));
 }
 
 void loop()
@@ -126,17 +122,17 @@ void processData()
   debugln(blynk_data.pressure2);
   blynk_data.dosage = calculateUVDosage(&blynk_data.flowrate, &blynk_data.irradiance);
   debugln(blynk_data.dosage);
-  // Replace existing blockage detection with:
-  auto blockageStatus = filterMonitor.update(
-      blynk_data.pressure1,
-      blynk_data.pressure2,
-      blynk_data.flowrate);
 
-  if (blockageStatus.requiresAttention)
+  // Use the advanced blockage detector
+  auto status = filterMonitor.update(blynk_data.pressure1, blynk_data.pressure2, blynk_data.flowrate);
+
+  if (status.requiresAttention && blynk_data.flowrate > 2.0f)
   {
-    Blynk.logEvent("filter_blockage", blockageStatus.message);
+    String message = "Filter blockage at " + String(status.blockagePercentage, 1) + "% - " + status.message.c_str();
+    Blynk.logEvent("filter_blockage", message);
   }
-  Blynk.virtualWrite(V14, blockageStatus.blockagePercentage);
+
+  Blynk.virtualWrite(V14, status.blockagePercentage);
 }
 void sendDatatoBlynk()
 {
@@ -146,7 +142,6 @@ void sendDatatoBlynk()
   Blynk.virtualWrite(V2, blynk_data.pressure1);
   Blynk.virtualWrite(V3, blynk_data.pressure2);
   Blynk.virtualWrite(V4, blynk_data.dosage);
-  Blynk.virtualWrite(V15, filterMonitor.isCalibrated() ? "Calibrated" : "Needs Calibration");
 }
 BLYNK_WRITE(V5)
 {
@@ -345,22 +340,3 @@ void checkBurst()
   }
 }
 
-// Add this handler for the calibration button (V16)
-BLYNK_WRITE(V16)
-{
-  if (param.asInt() == 1)
-  {
-    debugln("Calibrating filter system...");
-    filterMonitor.calibrate(
-        blynk_data.pressure1 - blynk_data.pressure2,
-        blynk_data.flowrate);
-    Blynk.logEvent("filter_calibration", "Filter system has been calibrated");
-  }
-  else
-  {
-    debugln("Resetting filter calibration");
-    filterMonitor.reset();
-    Blynk.virtualWrite(V15, "Needs Calibration");
-    Blynk.logEvent("filter_calibration", "Filter calibration reset to default");
-  }
-}
