@@ -1,0 +1,36 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../../Work/Projects/Platform IO Learning Projects/ESp32_Basic"
+		},
+		{
+			"name": "Hydroguard_Blynk",
+			"path": "../Hydroguard_Blynk"
+		},
+		{
+			"name": "Hydroguard_Blynk_V2.0",
+			"path": "."
+		},
+		{
+			"name": "ESP_Mirror",
+			"path": "../ESP_Mirror"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"array": "cpp",
+			"deque": "cpp",
+			"string": "cpp",
+			"unordered_map": "cpp",
+			"unordered_set": "cpp",
+			"vector": "cpp",
+			"string_view": "cpp",
+			"initializer_list": "cpp",
+			"memory": "cpp",
+			"random": "cpp",
+			"optional": "cpp",
+			"*.tcc": "cpp",
+			"algorithm": "cpp"
+		}
+	}
+}

@@ -5,6 +5,12 @@ AdvancedBlockageDetector::BlockageStatus
 AdvancedBlockageDetector::update(float inletPressure, float outletPressure, float flowRate, float temperature) {
     BlockageStatus status;
 
+    if (flowRate == 0.0f) {
+        status.message            = "No flow detected";
+        // blockagePercentage is already 0.0f thanks to {} init
+        status.requiresAttention  = false;
+        return status;
+    }
     if(!validateReadings(inletPressure, outletPressure, flowRate)) {
         status.message = "Invalid sensor readings";
         // Maintain previous blockage percentage

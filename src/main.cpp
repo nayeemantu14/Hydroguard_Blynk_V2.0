@@ -8,7 +8,6 @@ void setup()
   Serial1.begin(115200, SERIAL_8N1);
   EEPROM.begin(512);
   // Initialize ADC and mark filter monitor as uninitialized
-  analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
   filterMonitor.reset(); // Reset to uninitialized state
   delay(100); // Give ADC time to stabilize
@@ -20,8 +19,8 @@ void setup()
   // Take a few initial readings to prime the moving average
   for (int i = 0; i < WINDOW_SIZE; i++)
   {
-    readPressure_ch1();
-    readPressure_ch2();
+    readPressureRaw_ch1();
+    readPressureRaw_ch2();
     delay(10);
   }
   flowThreshold = 30.0;
@@ -31,12 +30,12 @@ void setup()
 
   readFlowSensorData(readflowCommand, sizeof(readflowCommand), flowrate, cumulativeFlow, *pData, sizeof(*pData));
   initFlowThreshold();
-  pressureCH1 = readPressure_ch1();
-  pressureCH2 = readPressure_ch2();
+  pressureCH1 = readPressureRaw_ch1();
+  pressureCH2 = readPressureRaw_ch2();
 }
 
 void loop()
-{
+{ 
   BlynkEdgent.run();
   // server.handleClient();
   memset(*pData, 0, sizeof(*pData));
@@ -66,8 +65,8 @@ void loop()
     // {
     //   resetPressureFilters();
     // }
-    pressureCH1 = readPressure_ch1();
-    pressureCH2 = readPressure_ch2();
+    pressureCH1 = readPressureRaw_ch1();
+    pressureCH2 = readPressureRaw_ch2();
     UVVoltage = readUV();
     displayFlow();
     sendESPdata();
@@ -116,9 +115,10 @@ void processData()
   debugln(blynk_data.cumulativeflow);
   blynk_data.irradiance = 10 * (UVVoltage * 3.3 / 4095.0) * 1.515;
   debugln(blynk_data.irradiance);
-  blynk_data.pressure1 = 208.33 * ((3.3 * pressureCH1 / 4095.0) - 0.6);
+  blynk_data.pressure1 = readPressureKpa_ch1();
   debugln(blynk_data.pressure1);
-  blynk_data.pressure2 = 208.33 * ((3.3 * pressureCH2 / 4095.0) - 0.6);
+  blynk_data.pressure2 = readPressureKpa_ch2();
+  //blynk_data.pressure2 = 208.333 * (((3.30 * analogRead(6))/4095.0) - 0.6);
   debugln(blynk_data.pressure2);
   blynk_data.dosage = calculateUVDosage(&blynk_data.flowrate, &blynk_data.irradiance);
   debugln(blynk_data.dosage);

@@ -1,4 +1,4 @@
-#define BLYNK_FIRMWARE_VERSION        "1.3.5"
+#define BLYNK_FIRMWARE_VERSION        "1.4.4"
 
 #include <Arduino.h>
 #include "debug.h"
@@ -43,12 +43,12 @@ typedef struct
 
 typedef struct
 {
-    uint8_t today;         // Current day
-    uint8_t yesterday;     // Previous day
+    uint8_t today;          // Current day
+    uint8_t yesterday;      // Previous day
     double todaysFlow;      // Flow recorded today
     double yesterdaysFlow;  // Flow recorded yesterday
-    uint8_t currentMonth;  // Current month
-    uint8_t previousMonth; // Last month
+    uint8_t currentMonth;   // Current month
+    uint8_t previousMonth;  // Last month
     double flowThisMonth;   // Flow recorded this month
     double flowLastMonth;   // Flow recorded last month
     uint8_t currentHour;

@@ -11,14 +11,22 @@ uint16_t readUV();
 
 void UV_init()
 {
-    pinMode(UVPIN, INPUT);
+    pinMode(UVPIN, ANALOG);
 }
 
 uint16_t readUV()
 {
-    uint16_t analogUV = analogRead(UVPIN);
-    return analogUV;
+    const uint8_t NUM_SAMPLES = 5;
+    uint32_t sum = 0;
+
+    for (uint8_t i = 0; i < NUM_SAMPLES; ++i) {
+        sum += analogRead(UVPIN);
+        delay(2);  // small settle delay; adjust or remove as needed
+    }
+
+    return uint16_t(sum / NUM_SAMPLES);
 }
+
 
 float calculateUVDosage(float *flowrate, float *irradiance) {
     float volume = 0.0007; // Volume in cubic meters (m³)
